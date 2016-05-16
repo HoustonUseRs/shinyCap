@@ -6,16 +6,6 @@ drv <- PostgreSQL()
 
 
 mod1 <- function(input, output, session,conn_fun) {
-  # conn <- reactive({
-  #   drv <- PostgreSQL()
-  #   dbConnect(drv, 
-  #             dbname  = input$dbname_id,
-  #             host = input$ip_id,
-  #             port = input$port_id,
-  #             user = input$user_id,
-  #             password = input$password_id)
-  # })
-  
   output$distPlot <- renderPlot({
     hist(rnorm(input$obs), col = 'darkgray', border = 'white')
   })
@@ -99,12 +89,21 @@ conn_fun <- reactive({
             password = input$password_id)
   return(conn)
   })
+
+dplyr_conn <- reactive({
+  src_postgres(dbname = input$dbname_id,
+               host = input$ip_id,
+               port = input$port_id,
+               user = input$user_id,
+               password = input$password_id)
+})
   
-  #conn_fun <-
-  #   reactive({
-  #     options()$conn
-  #   })
-  # 
+output$tbl_select <-
+  renderUI({
+    selectizeInput("tbl_select", 
+                   "Select a table from Defined DB Conn",
+                   choices = src_tbls(dplyr_conn()))
+  })
  mod_test <- callModule(mod1, "my_mod",conn_fun)
  
  # observeEvent()
@@ -158,7 +157,8 @@ ui <-
         textInput("pk_id",
                   "Name of Primary Key Column"),
         p("Primary Key defaults to auto-increment serial datatype, uses user input as table owner"),
-        actionButton("create_tb_button", "Create Table")
+        actionButton("create_tb_button", "Create Table"),
+        uiOutput("tbl_select")
       )
     ),
     tabPanel("Sample Insert",
