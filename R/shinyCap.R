@@ -1,3 +1,10 @@
+#' exampleMod
+#'
+#' @param input 
+#' @param output 
+#' @param session 
+#' @param conn_fun
+#' @export
 exampleMod <- function(input, output, session,conn_fun) {
   output$distPlot <- renderPlot({
     hist(rnorm(input$obs), col = 'darkgray', border = 'white')
@@ -21,6 +28,10 @@ exampleMod <- function(input, output, session,conn_fun) {
   )
 }
 
+#' exampleModUI
+#'
+#' @param id
+#' @export
 exampleModUI <- function(id) {
   ns <- NS(id)
   tagList(
@@ -33,6 +44,8 @@ exampleModUI <- function(id) {
 }
 
 
+#' shinyCap 
+#' @export
 shinyCap <- function() {
 
 require(shiny)

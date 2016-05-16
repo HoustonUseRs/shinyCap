@@ -11,6 +11,8 @@ The purpose of this package is to provide shiny modules that enable the capturin
 ### Inspiration
 The decision to use PostgreSQL as the backend database was inspired by dplyr and it's ability to perform window functions (group mutate and subset).
 
+### Installation
+
 ### Sources
 - https://cran.r-project.org/web/packages/dplyr/vignettes/databases.html
 - http://ipub.com/shiny-crud-app/
@@ -19,3 +21,4 @@ The decision to use PostgreSQL as the backend database was inspired by dplyr and
 ### Related shiny apps
 - http://daattali.com/shiny/persistent-data-storage/
 - http://ipub.com/apps/shiny_crud01/
+
