@@ -70,17 +70,23 @@ server <- function(input, output) {
         TABLESPACE = pg_default
         CONNECTION LIMIT = %s;", input$create_db, input$conn_limit))
   })
-  # 
 
-  observeEvent(input$db_submit, {
-               options(conn =
-                         dbConnect(drv, 
-                         dbname  = input$dbname_id,
-                         host = input$ip_id,
-                         port = input$port_id,
-                         user = input$user_id,
-                         password = input$password_id)
-               )
+  observeEvent(input$create_tb_button, {
+    sqldf(
+      sprintf(
+      "CREATE TABLE %s
+      (
+      %s serial NOT NULL,
+      CONSTRAINT tbl_pk PRIMARY KEY (%s)
+      )
+      WITH (
+      OIDS=FALSE
+      );
+      ALTER TABLE %s
+      OWNER TO %s;", input$create_tb, 
+      input$pk_id, input$pk_id, 
+      input$create_tb, input$user_id)
+    )
   })
   
 conn_fun <- reactive({
@@ -145,7 +151,7 @@ ui <-
                          "Create Database")
       )
     ),
-    tabPanel("Create Table"
+    tabPanel("Create Table",
       fluidRow(
         textInput("create_tb",
                   "Create Table"),
@@ -164,18 +170,8 @@ ui <-
 )
 
 shinyApp(ui = ui, server = server)
-# 
-# observeEvent()
-# "CREATE TABLE test_tb
-# (
-# tbl_id serial NOT NULL,
-# CONSTRAINT tbl_pk PRIMARY KEY (tbl_id)
-# )
-# WITH (
-#   OIDS=FALSE
-# );
-# ALTER TABLE test_tb
-# OWNER TO postgres;"
+
+
 
 # 
 # TABLE_NAME <- 
