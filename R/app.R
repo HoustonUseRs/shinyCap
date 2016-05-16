@@ -1,8 +1,21 @@
 library(dplyr)
 library(RPostgreSQL)
 library(sqldf)
+library(shiny)
+drv <- PostgreSQL()
 
-mod1 <- function(input, output, session, conn) {
+
+mod1 <- function(input, output, session,conn_fun) {
+  # conn <- reactive({
+  #   drv <- PostgreSQL()
+  #   dbConnect(drv, 
+  #             dbname  = input$dbname_id,
+  #             host = input$ip_id,
+  #             port = input$port_id,
+  #             user = input$user_id,
+  #             password = input$password_id)
+  # })
+  
   output$distPlot <- renderPlot({
     hist(rnorm(input$obs), col = 'darkgray', border = 'white')
   })
@@ -15,11 +28,11 @@ mod1 <- function(input, output, session, conn) {
     return(df)
   })
   
-  # observeEvent(input$submit, {
-  #   dbWriteTable(conn, "TABLE_NAME",
-  #               react_return_fun(), append = TRUE, 
-  #                row.names = FALSE)
-  # })
+  observeEvent(input$submit, {
+    dbWriteTable(conn_fun(), "TABLE_NAME",
+                react_return_fun(), append = TRUE,
+                 row.names = FALSE)
+  })
   return(
   react_return_fun
   )
@@ -38,30 +51,17 @@ mod1UI <- function(id) {
 
 server <- function(input, output) {
   
-  options(sqldf.RPostgreSQL.user ="postgres", 
-          sqldf.RPostgreSQL.password =password,
-          sqldf.RPostgreSQL.dbname ="postgres",
-          sqldf.RPostgreSQL.host ="localhost", 
-          sqldf.RPostgreSQL.port =5432)
+  # update_db_conn
+  observeEvent(input$conn_button, {
+  options(sqldf.RPostgreSQL.user = input$user_id, 
+          sqldf.RPostgreSQL.password = input$password_id,
+          sqldf.RPostgreSQL.dbname =input$dbname_id,
+          sqldf.RPostgreSQL.host =input$ip_id, 
+          sqldf.RPostgreSQL.port =input$port_id)
+  })
   
-  output$db_name <-
-    renderUI({
-      textInput("create_db",
-                     "Define database Name"
-                     )
-      })
-  output$new_db_conn_limit <-
-    renderUI({
-      numericInput("conn_limit",
-                   "Max Connection Limit",
-                   value = 10)
-    })
-  
-  output$create_db_button <-
-    renderUI({
-      actionButton("db_submit",
-                    "Create Database")
-    })
+  output$passwd_print <-
+    renderText(input$password)
   
   observeEvent(input$db_submit, {
   sqldf(sprintf("CREATE DATABASE %s
@@ -71,16 +71,35 @@ server <- function(input, output) {
         CONNECTION LIMIT = %s;", input$create_db, input$conn_limit))
   })
   # 
-  library(RPostgreSQL)
-  drv <- PostgreSQL()
-  conn <- dbConnect(drv, 
-                    dbname  = "shiny_db",
-                    host = "localhost",
-                    port = 5432,
-                    user = "postgres",
-                    password = password)
+
+  observeEvent(input$db_submit, {
+               options(conn =
+                         dbConnect(drv, 
+                         dbname  = input$dbname_id,
+                         host = input$ip_id,
+                         port = input$port_id,
+                         user = input$user_id,
+                         password = input$password_id)
+               )
+  })
   
- mod_test <- callModule(mod1, "my_mod", conn)
+conn_fun <- reactive({
+  drv <- PostgreSQL()
+  conn <- dbConnect(drv,
+            dbname  = input$dbname_id,
+            host = input$ip_id,
+            port = input$port_id,
+            user = input$user_id,
+            password = input$password_id)
+  return(conn)
+  })
+  
+  #conn_fun <-
+  #   reactive({
+  #     options()$conn
+  #   })
+  # 
+ mod_test <- callModule(mod1, "my_mod",conn_fun)
  
  # observeEvent()
  
@@ -88,12 +107,50 @@ server <- function(input, output) {
     renderPrint(mod_test())
 }
 
-ui <- fluidPage(
-  uiOutput("db_name"),
-  uiOutput("new_db_conn_limit"),
-  uiOutput("create_db_button"),
-  mod1UI("my_mod"),
-  verbatimTextOutput("my_mean")
+ui <- 
+  navbarPage("shinyCap",
+    tabPanel("Default Conn",
+       sidebarLayout(
+         sidebarPanel(
+           textInput("user_id",
+                     "Enter a Valid Username",
+                     value = "postgres"),
+           passwordInput("password_id",
+                         "Enter posgres user password"),
+         p("Password will display for testing"),
+         textInput("dbname_id",
+                   "Enter/Update Database Name",
+                   value = "postgres"),
+         textInput("ip_id",
+                   "Enter Server IP address",
+                   value = "localhost"),
+         numericInput("port_id", 
+                      "Enter Port #",
+                      value = 5432),
+         actionButton("conn_button", "Connect")
+         ),
+         mainPanel(
+         textOutput("passwd_print")
+         )
+       )),
+    tabPanel("Create DB",
+      fluidPage(
+            textInput("create_db",
+                      "Define database Name"
+            ),
+            numericInput("conn_limit",
+                         "Max Connection Limit",
+                         value = 10),
+            actionButton("db_submit",
+                         "Create Database")
+      )
+    ),
+    tabPanel("Sample Insert",
+     fluidPage(
+       mod1UI("my_mod"),
+       verbatimTextOutput("my_mean")
+     )
+    )
 )
 
 shinyApp(ui = ui, server = server)
