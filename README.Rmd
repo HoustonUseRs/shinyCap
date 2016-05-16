@@ -12,6 +12,19 @@ The purpose of this package is to provide shiny modules that enable the capturin
 The decision to use PostgreSQL as the backend database was inspired by dplyr and it's ability to perform window functions (group mutate and subset).
 
 ### Installation
+```{r eval=FALSE}
+install_github("mre011/shinyCap")
+library(shinyCap)
+
+```
+
+### Run Development App
+
+```{r eval=FALSE}
+shinyCap()
+
+```
+
 
 ### Sources
 - https://cran.r-project.org/web/packages/dplyr/vignettes/databases.html
