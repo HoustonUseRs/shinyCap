@@ -1,0 +1,8 @@
+Package: shinyCap
+Title: R, Shiny, and PostgreSQL Data Capture and Warehousing Tool
+Version: 0.0.0.9000
+Authors@R: person("Michael", "Eubanks", email = "meubanks@visresolutions.com", role = c("aut", "cre"))
+Description: Provide a UI/Gui to creating Database, Tables, and other CRUD Operations on PostgreSQL database from within Shiny
+Depends: R (>= 3.2.0)
+License: What license is it under?
+LazyData: true
