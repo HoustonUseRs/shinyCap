@@ -1,4 +1,8 @@
-mod1 <- function(input, output, session) {
+library(dplyr)
+library(RPostgreSQL)
+library(sqldf)
+
+mod1 <- function(input, output, session, conn) {
   output$distPlot <- renderPlot({
     hist(rnorm(input$obs), col = 'darkgray', border = 'white')
   })
@@ -10,6 +14,12 @@ mod1 <- function(input, output, session) {
                      time = Sys.time())
     return(df)
   })
+  
+  # observeEvent(input$submit, {
+  #   dbWriteTable(conn, "TABLE_NAME",
+  #               react_return_fun(), append = TRUE, 
+  #                row.names = FALSE)
+  # })
   return(
   react_return_fun
   )
@@ -27,6 +37,40 @@ mod1UI <- function(id) {
 }
 
 server <- function(input, output) {
+  
+  options(sqldf.RPostgreSQL.user ="postgres", 
+          sqldf.RPostgreSQL.password =password,
+          sqldf.RPostgreSQL.dbname ="postgres",
+          sqldf.RPostgreSQL.host ="localhost", 
+          sqldf.RPostgreSQL.port =5432)
+  
+  output$db_name <-
+    renderUI({
+      textInput("create_db",
+                     "Define database Name"
+                     )
+      })
+  output$new_db_conn_limit <-
+    renderUI({
+      numericInput("conn_limit",
+                   "Max Connection Limit",
+                   value = 10)
+    })
+  
+  output$create_db_button <-
+    renderUI({
+      actionButton("db_submit",
+                    "Create Database")
+    })
+  
+  observeEvent(input$db_submit, {
+  sqldf(sprintf("CREATE DATABASE %s
+        WITH OWNER = postgres
+        ENCODING = 'UTF8'
+        TABLESPACE = pg_default
+        CONNECTION LIMIT = %s;", input$create_db, input$conn_limit))
+  })
+  # 
   library(RPostgreSQL)
   drv <- PostgreSQL()
   conn <- dbConnect(drv, 
@@ -36,7 +80,7 @@ server <- function(input, output) {
                     user = "postgres",
                     password = password)
   
- mod_test <- callModule(mod1, "my_mod")
+ mod_test <- callModule(mod1, "my_mod", conn)
  
  # observeEvent()
  
@@ -45,26 +89,29 @@ server <- function(input, output) {
 }
 
 ui <- fluidPage(
+  uiOutput("db_name"),
+  uiOutput("new_db_conn_limit"),
+  uiOutput("create_db_button"),
   mod1UI("my_mod"),
   verbatimTextOutput("my_mean")
 )
 
 shinyApp(ui = ui, server = server)
+# 
+# TABLE_NAME <- 
+#   "data_cap"
 
-TABLE_NAME <- 
-  "data_cap"
-
-query <-
- sprintf("INSERT INTO %s (%s) VALUES %s", 
-         TABLE_NAME, paste(names(mtcars), 
-                           collapse = ", "),
-         gsub(paste(mtcars, collapse = ", "),
-              pattern = "c\\(", replacement = "("
-         )
-         )
-dbGetQuery(conn, query)
-
-dbWriteTable(conn, TABLE_NAME,
-             mtcars, append = TRUE, row.names = FALSE)
-
-query_tmp <- "INSERT INTO data_cap (mpg, cyl, disp, hp, drat, wt, qsec, vs, am, gear, carb) VALUES (21, 22, 3.9, 2.62, 16.46, 0, 1, 4, 4, 3, 3), (21, 22, 3.9, 2.62, 16.46, 0, 1, 4, 4, 3, 3)"
+# query <-
+#  sprintf("INSERT INTO %s (%s) VALUES %s", 
+#          TABLE_NAME, paste(names(mtcars), 
+#                            collapse = ", "),
+#          gsub(paste(mtcars, collapse = ", "),
+#               pattern = "c\\(", replacement = "("
+#          )
+#          )
+# dbGetQuery(conn, query)
+# 
+# dbWriteTable(conn, TABLE_NAME,
+#              mtcars, append = TRUE, row.names = FALSE)
+# 
+# query_tmp <- "INSERT INTO data_cap (mpg, cyl, disp, hp, drat, wt, qsec, vs, am, gear, carb) VALUES (21, 22, 3.9, 2.62, 16.46, 0, 1, 4, 4, 3, 3), (21, 22, 3.9, 2.62, 16.46, 0, 1, 4, 4, 3, 3)"
