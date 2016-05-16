@@ -1,0 +1,21 @@
+---
+title: "README"
+author: "Michael Eubanks"
+date: "5/16/2016"
+output: html_document
+---
+
+### Motivation
+The purpose of this package is to provide shiny modules that enable the capturing and storing of data easier within an research or analytics environment. Specifically, R has many capabilities for visualization, analysis, machine learning, and reporting. The focus here isn't necessarily to reinvent the wheel, as there are already great solutions through RedCap and others. The goal is to allow R users and programmers access to a data capture tool they can use with their current analytics stack of shiny, rstudio, and postgres.
+
+### Inspiration
+The decision to use PostgreSQL as the backend database was inspired by dplyr and it's ability to perform window functions (group mutate and subset).
+
+### Sources
+- https://cran.r-project.org/web/packages/dplyr/vignettes/databases.html
+- http://ipub.com/shiny-crud-app/
+- http://deanattali.com/blog/shiny-persistent-data-storage/
+
+### Related shiny apps
+- http://daattali.com/shiny/persistent-data-storage/
+- http://ipub.com/apps/shiny_crud01/
