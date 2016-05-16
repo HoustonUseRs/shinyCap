@@ -55,9 +55,9 @@ require(sqldf)
 shinyApp(
   ui =
     navbarPage("shinyCap",
-               tabPanel("Default Conn",
-                        sidebarLayout(
-                          sidebarPanel(
+               tabPanel("Database Level",
+                        navlistPanel("Table CRUD Operations",
+                          tabPanel("Define Database Connection",
                             textInput("user_id",
                                       "Enter a Valid Username",
                                       value = "postgres"),
@@ -73,36 +73,44 @@ shinyApp(
                             numericInput("port_id", 
                                          "Enter Port #",
                                          value = 5432),
-                            actionButton("conn_button", "Connect")
-                          ),
-                          mainPanel(
+                            actionButton("conn_button", "Connect"),
                             textOutput("passwd_print")
-                          )
-                        )),
-               tabPanel("Create DB",
-                        fluidPage(
-                          textInput("create_db",
-                                    "Define database Name"
                           ),
-                          numericInput("conn_limit",
-                                       "Max Connection Limit",
-                                       value = 10),
-                          actionButton("db_submit",
-                                       "Create Database")
-                        )
-               ),
-               tabPanel("Create Table",
-                        fluidRow(
+                       tabPanel("Create New Database",
+                                  textInput("create_db",
+                                            "Define database Name"
+                                  ),
+                                  numericInput("conn_limit",
+                                               "Max Connection Limit",
+                                               value = 10),
+                                  actionButton("db_submit",
+                                               "Create Database")
+                       )
+                        )),
+               tabPanel("Table Level",
+                       navlistPanel("Table CRUD Operations",
+                         tabPanel("Create New Table",
                           textInput("create_tb",
                                     "Create Table"),
                           textInput("pk_id",
                                     "Name of Primary Key Column"),
                           p("Primary Key defaults to auto-increment serial datatype, uses user input as table owner"),
-                          actionButton("create_tb_button", "Create Table"),
-                          uiOutput("tbl_select")
+                          actionButton("create_tb_button", "Create Table")
+                         ),
+                         tabPanel("Select Table",
+                                  p("Requires Valid Database Connection to be submitted"),
+                                  uiOutput("tbl_select")
+                         ),
+                         tabPanel("Table Fields",
+                                  p("Requires Valid Table to be Selected"),
+                          textInput("new_col_id", "New Column Name"),
+                          selectizeInput("col_type", "Column Data Type",
+                                         choices  = c("text", "double precision", "boolean", "date")),
+                          actionButton("new_col_button", "New Column/Field")
+                         )
                         )
                ),
-               tabPanel("Sample Insert",
+               tabPanel("Row Level",
                         fluidPage(
                           exampleModUI("my_mod"),
                           verbatimTextOutput("my_mean")
@@ -172,6 +180,26 @@ dplyr_conn <- eventReactive(input$conn_button, {
                user = input$user_id,
                password = input$password_id)
 })
+
+  observeEvent(input$new_col_button, {
+    dbSendQuery(conn_fun(),sprintf(
+          "ALTER TABLE %s
+          ADD COLUMN %s %s ;",
+          input$tbl_select,
+          input$new_col_id,
+          input$col_type)
+            )
+  })
+
+# ALTER TABLE table1 ADD COLUMN test_cols1 varchar(10) NOT NULL DEFAULT 'foo';
+    
+  # output$ls_elements <- 
+  #   renderUI({
+  #   switch(type, "numeric/double" = "numericInput()",
+  #          varchar = "textInput()") #%>% parse(text = .) 
+  #      #   %>% eval()
+  #   })
+
   
 output$tbl_select <-
   renderUI({
