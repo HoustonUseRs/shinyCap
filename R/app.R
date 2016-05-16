@@ -145,6 +145,16 @@ ui <-
                          "Create Database")
       )
     ),
+    tabPanel("Create Table"
+      fluidRow(
+        textInput("create_tb",
+                  "Create Table"),
+        textInput("pk_id",
+                  "Name of Primary Key Column"),
+        p("Primary Key defaults to auto-increment serial datatype, uses user input as table owner"),
+        actionButton("create_tb_button", "Create Table")
+      )
+    ),
     tabPanel("Sample Insert",
      fluidPage(
        mod1UI("my_mod"),
@@ -154,6 +164,19 @@ ui <-
 )
 
 shinyApp(ui = ui, server = server)
+# 
+# observeEvent()
+# "CREATE TABLE test_tb
+# (
+# tbl_id serial NOT NULL,
+# CONSTRAINT tbl_pk PRIMARY KEY (tbl_id)
+# )
+# WITH (
+#   OIDS=FALSE
+# );
+# ALTER TABLE test_tb
+# OWNER TO postgres;"
+
 # 
 # TABLE_NAME <- 
 #   "data_cap"
