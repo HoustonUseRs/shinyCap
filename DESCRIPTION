@@ -7,7 +7,11 @@ Authors@R: person("Michael", "Eubanks",
 Description: Provide a UI/Gui to creating Database, Tables, and other CRUD
     Operations on PostgreSQL database from within Shiny
 Depends:
-    R (>= 3.2.0)
+    R (>= 3.2.0),
+    RPostgreSQL,
+    sqldf,
+    dplyr,
+    shiny
 License: What license is it under?
 LazyData: true
 RoxygenNote: 5.0.1
