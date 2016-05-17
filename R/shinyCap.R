@@ -35,7 +35,8 @@ exampleMod <- function(input, output, session,conn_fun) {
 exampleModUI <- function(id) {
   ns <- NS(id)
   tagList(
-    sliderInput(ns("obs"), "Number of observations:", min = 10, max = 500, value = 100),
+    sliderInput(ns("obs"), "Number of observations:",
+                min = 10, max = 500, value = 100),
     textInput(ns("text_inp"), "My Varchar"),
     dateInput(ns("date_inp"), "Select Date"),
     actionButton(ns("submit"), "Send!"),
@@ -99,6 +100,8 @@ shinyCap <- function() {
                                                 actionButton("create_tb_button", "Create Table")
                                        ),
                                        tabPanel("Create Table from File",
+                                                textInput("create_tb2",
+                                                          "Specify New Table Name"),
                                                 fileInput('upload_tbl', 'Choose CSV File',
                                                           accept=c('text/csv',
                                                                    'text/comma-separated-values,text/plain',
@@ -214,6 +217,15 @@ shinyCap <- function() {
         renderDataTable(
           read_file()
         )
+      
+      observeEvent(input$upload_tbl, {
+        inFile <- input$upload_tbl
+        if (is.null(inFile))
+          return(NULL)
+        dbWriteTable(conn_fun(),
+                     input$create_tb2, read_file(), row.names = FALSE,
+                     append = TRUE)
+      })
       # output$ls_elements <-
       #   renderUI({
       #   switch(type, "numeric/double" = "numericInput()",
