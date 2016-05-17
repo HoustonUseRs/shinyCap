@@ -6,13 +6,6 @@
 \usage{
 exampleMod(input, output, session, conn_fun)
 }
-\arguments{
-\item{input}{}
-
-\item{output}{}
-
-\item{session}{}
-}
 \description{
 exampleMod
 }

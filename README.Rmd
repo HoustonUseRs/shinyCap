@@ -13,7 +13,7 @@ The decision to use PostgreSQL as the backend database was inspired by dplyr and
 
 ### Installation
 ```{r eval=FALSE}
-install_github("mre011/shinyCap")
+devtools::install_github("houstonusers/shinyCap")
 library(shinyCap)
 
 ```

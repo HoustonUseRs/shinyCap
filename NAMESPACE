@@ -3,3 +3,7 @@
 export(exampleMod)
 export(exampleModUI)
 export(shinyCap)
+import(RPostgreSQL)
+import(dplyr)
+import(shiny)
+import(sqldf)
