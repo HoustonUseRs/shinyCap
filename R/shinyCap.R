@@ -97,6 +97,13 @@ shinyApp(
                           p("Primary Key defaults to auto-increment serial datatype, uses user input as table owner"),
                           actionButton("create_tb_button", "Create Table")
                          ),
+                         tabPanel("Create Table from File",
+                                  fileInput('upload_tbl', 'Choose CSV File',
+                                            accept=c('text/csv', 
+                                                     'text/comma-separated-values,text/plain', 
+                                                     '.csv')),
+                                  dataTableOutput("read_file_view")
+                                  ),
                          tabPanel("Select Table",
                                   p("Requires Valid Database Connection to be submitted"),
                                   uiOutput("tbl_select")
@@ -192,7 +199,20 @@ dplyr_conn <- eventReactive(input$conn_button, {
   })
 
 # ALTER TABLE table1 ADD COLUMN test_cols1 varchar(10) NOT NULL DEFAULT 'foo';
-    
+  read_file <-
+    reactive({
+      inFile <- input$upload_tbl
+      
+      if (is.null(inFile))
+        return(NULL)
+  
+  read.csv(inFile$datapath, stringsAsFactors = FALSE)
+    })
+  
+  output$read_file_view <-
+    renderDataTable(
+      read_file()
+    )
   # output$ls_elements <- 
   #   renderUI({
   #   switch(type, "numeric/double" = "numericInput()",
