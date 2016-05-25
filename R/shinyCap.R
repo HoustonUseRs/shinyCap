@@ -1,48 +1,4 @@
-#' exampleMod
-#'
-#' @param input
-#' @param output
-#' @param session
-#' @param conn_fun
-#' @export
-exampleMod <- function(input, output, session,conn_fun) {
-  output$distPlot <- renderPlot({
-    hist(rnorm(input$obs), col = 'darkgray', border = 'white')
-  })
 
-  react_return_fun <- eventReactive(input$submit, {
-    df <- data.frame(rnorm = input$obs,
-                     text_col = input$text_inp,
-                     date_col = input$date_inp,
-                     time = Sys.time())
-    return(df)
-  })
-
-  observeEvent(input$submit, {
-    dbWriteTable(conn_fun(), "TABLE_NAME",
-                 react_return_fun(), append = TRUE,
-                 row.names = FALSE)
-  })
-  return(
-    react_return_fun
-  )
-}
-
-#' exampleModUI
-#'
-#' @param id
-#' @export
-exampleModUI <- function(id) {
-  ns <- NS(id)
-  tagList(
-    sliderInput(ns("obs"), "Number of observations:",
-                min = 10, max = 500, value = 100),
-    textInput(ns("text_inp"), "My Varchar"),
-    dateInput(ns("date_inp"), "Select Date"),
-    actionButton(ns("submit"), "Send!"),
-    plotOutput(ns("distPlot"))
-  )
-}
 
 
 #' shinyCap
@@ -54,9 +10,12 @@ shinyCap <- function() {
   #require(dplyr)
   #require(RPostgreSQL)
   #require(sqldf)
+  #require(shinyjs)
+  #require(DT)
   shinyApp(
     ui =
       navbarPage("shinyCap",
+                 shinyjs::useShinyjs(),
                  tabPanel("Database Level",
                           navlistPanel("Table CRUD Operations",
                                        tabPanel("Define Database Connection",
@@ -123,12 +82,146 @@ shinyCap <- function() {
                  ),
                  tabPanel("Row Level",
                           fluidPage(
-                            exampleModUI("my_mod"),
-                            verbatimTextOutput("my_mean")
+                            # exampleModUI("my_mod"),
+                            # verbatimTextOutput("my_mean")
+                            uiOutput("group_inputs"),
+                            actionButton("submit", "Submit"),
+                            actionButton("new", "New"),
+                            actionButton("delete", "Delete"),
+                            DT::dataTableOutput("responses"),
+                            DT::dataTableOutput("my_responses"),
+                            verbatimTextOutput("row_select")
                           )
                  )
       ),
-    server = function(input, output) {
+    server = function(input, output, session) {
+      
+      tblSchema <- function(tbl_name, conn) {
+        dbSendQuery(conn,
+                    sprintf("SELECT column_name, data_type
+                            FROM   information_schema.columns
+                            WHERE  table_name = '%s'
+                            ORDER  BY ordinal_position;", tbl_name)
+                    ) %>% fetch()
+      }
+      
+      rendershinyCapUI <- 
+        function(x, y) {
+          if(y == "integer") {
+            shiny_input <-  numericInput(x, x, value = 0)
+          } else if(y == "text") {
+            shiny_input <-  textInput(x, x)
+          } else if(y == "date") {
+            shiny_input <-  dateInput(x, x, value = #Sys.time()
+                                        "")
+          }
+          return(shiny_input)
+        }
+      
+      defaultValue <- function(x, y) {
+        if(y == "integer") {
+          value <-  0
+        } else if(y == "text") {
+          value <-  ""
+        } else if(y == "date") {
+          value <- Sys.time()
+        }
+        return(value)
+      }
+      
+      CreateDefaultRecord <- function(tbl_name, conn) {
+        tbl_col_types <- tblSchema(tbl_name, conn)
+        mydefault <- 
+          # CastData(list(id = 0#GetNextId()
+          #        , employee_name = "",
+          #        date_created = ""))
+          Map(tbl_col_types$column_name, tbl_col_types$data_type, f = defaultValue) %>%
+          CastData()
+        return (mydefault)
+      }
+      
+      
+      
+      GetNextId <- function( tbl_name, conn) {
+        conn %>% 
+          tbl(
+            sql(paste("SELECT max(id) FROM", tbl_name,sep = " "))
+          ) %>% collect() %>% as.numeric() + 1
+      }
+      
+      GetTableMetadata <- function(tbl_name, conn) {
+        
+        fields <-
+          Map(x =  dbListFields(conn, tbl_name),
+              y = dbListFields(conn, tbl_name),
+              function(x, y) {
+                assign(x, y)
+              }) %>% unlist()
+        
+        result <- list(fields = fields)
+        return (result)
+      }
+      
+      CreateData <- function(data, tbl_name, conn, conn2) {
+        df <- CastData(data)
+        df$id <- GetNextId(tbl_name, conn)
+        tbl_col_types <- tblSchema(tbl_name, conn2)
+        
+        date_cols <-
+          filter(tbl_col_types, 
+                 data_type == "date")
+        
+        df[names(df) %in% date_cols$column_name] <- 
+          apply(df[names(df) %in% date_cols$column_name], 
+                MARGIN =2,
+                FUN = as.character)
+        
+        # df$date_created <- as.character(
+        #   Sys.time()
+        # )
+        
+        dbSendQuery(conn2, 
+                    sprintf("INSERT INTO %s (%s) VALUES ('%s')", tbl_name,
+                            paste(df %>% names(), collapse = ", "),
+                            paste(unname(df), collapse = "', '")
+                    ))
+      }
+      
+      UpdateDataQuery <- function(data, tbl_name, conn) {
+        data <- CastData(data)
+        df <- select(data, -id)
+        df_pk <- data[, "id"]
+        tbl_col_types <- tblSchema(tbl_name, conn)
+        
+        date_cols <-
+          filter(tbl_col_types, 
+                 data_type == "date")
+        
+        df[names(df) %in% date_cols$column_name] <- 
+          apply(df[names(df) %in% date_cols$column_name], 
+                MARGIN =2,
+                FUN = as.character)
+        
+        dbSendQuery(conn, 
+                    sprintf("UPDATE %s SET (%s) = ('%s') WHERE %s;", tbl_name,
+                            paste(df %>% names(), collapse = ", "),
+                            paste(unname(df), collapse = "', '"),
+                            paste("id", df_pk, sep = " = ")
+                    )
+        )
+      }
+      
+
+      CastData <- function(data) {
+        data.frame(data, stringsAsFactors = FALSE)
+      }
+      
+
+      UpdateInputs <- function(data, session) {
+        Map(x = data, y = names(data), function(x, y) {
+          updateTextInput(session, y, value = as.character(unname(x)))
+        })
+      }
 
       ### Example insert statement with proper syntax
       # query_tmp <-
@@ -184,7 +277,7 @@ shinyCap <- function() {
         return(conn)
       })
 
-      dplyr_conn <- eventReactive(input$conn_button, {
+      dplyr_conn <- reactive({
         src_postgres(dbname = input$dbname_id,
                      host = input$ip_id,
                      port = input$port_id,
@@ -236,18 +329,104 @@ shinyCap <- function() {
 
       output$tbl_select <-
         renderUI({
-          selectizeInput("tbl_select",
+          selectizeInput("tbl_select_inp",
                          "Select a table from Defined DB Conn",
                          choices = src_tbls(dplyr_conn()))
         })
-      mod_test <- callModule(exampleMod, "my_mod",conn_fun)
+      # mod_test <- callModule(exampleMod, "my_mod",conn_fun)
 
       # observeEvent()
 
-      output$my_mean <-
-        renderPrint(mod_test())
+      # output$my_mean <-
+      #   renderPrint(mod_test())
+      
+      # tbl_name <- reactive({
+      #   input$tbl_select_inp
+      # })
+      ###
+      
+      #### Row Level
+      tbl_name <- "it_tickets"
+      
+      
+      ui_ls <- reactive({
+        tbl_col_types <- tblSchema(tbl_name,conn = conn_fun())
+        Map(tbl_col_types$column_name, tbl_col_types$data_type,f = rendershinyCapUI)
+      })
+      # 
+      output$group_inputs <-
+        renderUI({
+          return(
+            tagList(
+              disabled(ui_ls()$id),
+              ui_ls()[names(ui_ls()) != "id"]
+            )
+          )
+        })
+      # 
+      observeEvent(input$submit, {
+        if (input$id != 0) {
+          UpdateDataQuery(formData(),tbl_name, conn = conn_fun())
+        } else {
+          CreateData(formData(), tbl_name, conn = dplyr_conn(), conn2 = conn_fun())
+          UpdateInputs(CreateDefaultRecord(tbl_name, conn = conn_fun()), session)
+        }
+      }, priority = 1)
+      # 
+      # 
+      responses <- reactive({
+        input$submit
+        tbl(dplyr_conn(), input$tbl_select_inp) %>%
+          collect()
+      })
+      # 
+      formData <- reactive({
+        values <- lapply(names(GetTableMetadata(tbl_name, conn_fun())$fields), function(x) input[[x]])
+        names(values) <- names(GetTableMetadata(tbl_name, conn_fun())$fields)
+        return(values)
+      })
+
+      output$responses<- DT::renderDataTable({
+        responses()
+      }, server = FALSE, selection = "single"
+      )
+      # 
+      # 
+      selected_responses <-
+        eventReactive(input$responses_rows_selected, {
+
+          my_row <- input$responses_rows_selected
+          data <- responses()[input$responses_rows_selected, ]
+          return(data)
+
+        })
+      # 
+      output$my_responses <-
+        DT::renderDataTable({
+          selected_responses()
+        })
+      # 
+      observeEvent(input$new,{
+        data <-
+          # isolate(
+          CreateDefaultRecord(tbl_name, conn = conn_fun())
+          # )
+        UpdateInputs(data, session)
+      })
+      # 
+      observeEvent(input$responses_rows_selected, {
+        if (length(input$responses_rows_selected) > 0) {
+          data <- responses()[input$responses_rows_selected, ]
+          UpdateInputs(data, session)
+        }
+
+      })
+
     }
+    
 
 
   )
 }
+
+
