@@ -2,7 +2,7 @@
 
 
 #' shinyCap
-#' @import shiny dplyr RPostgreSQL sqldf
+#' @import shiny dplyr RPostgreSQL sqldf shinyjs DT
 #' @export
 shinyCap <- function() {
 
@@ -70,7 +70,7 @@ shinyCap <- function() {
                                                 actionButton("create_tb_button", "Create Table")
                                        ),
                                        tabPanel("Create Table from File",
-                                                textInput("create_tb2",
+                                                textInput("create_tbl2",
                                                           "Specify New Table Name"),
                                                 fileInput('upload_tbl', 'Choose CSV File',
                                                           accept=c('text/csv',
@@ -237,8 +237,7 @@ shinyCap <- function() {
                 sqldf.RPostgreSQL.port =input$port_id)
       })
 
-      output$passwd_print <-
-        renderText(input$password)
+      output$passwd_print <- renderText(input$password)
 
       observeEvent(input$db_submit, {
         sqldf(sprintf("CREATE DATABASE %s
@@ -254,19 +253,19 @@ shinyCap <- function() {
             "CREATE TABLE %s
       (
       %s serial NOT NULL,
-      CONSTRAINT tbl_pk PRIMARY KEY (%s)
+      CONSTRAINT %s PRIMARY KEY (%s)
       )
       WITH (
       OIDS=FALSE
       );
       ALTER TABLE %s
       OWNER TO %s;", input$create_tb,
-            input$pk_id, input$pk_id,
+            input$pk_id, paste(input$create_tb, "pk", sep = "_"), input$pk_id,
             input$create_tb, input$user_id)
         )
       })
 
-      conn_fun <- reactive({
+      conn_fun <- eventReactive(input$conn_button, {
         drv <- PostgreSQL()
         conn <- dbConnect(drv,
                           dbname  = input$dbname_id,
@@ -277,7 +276,9 @@ shinyCap <- function() {
         return(conn)
       })
 
-      dplyr_conn <- reactive({
+      dplyr_conn <- eventReactive(input$conn_button, {
+        # input$create_tb_button
+        # input$upload_tbl
         src_postgres(dbname = input$dbname_id,
                      host = input$ip_id,
                      port = input$port_id,
@@ -286,12 +287,14 @@ shinyCap <- function() {
       })
 
       observeEvent(input$new_col_button, {
-        dbSendQuery(conn_fun(),sprintf(
-          "ALTER TABLE %s
-          ADD COLUMN %s %s ;",
-          input$tbl_select,
-          input$new_col_id,
-          input$col_type)
+        dbSendQuery(#isolate(
+          conn_fun()
+                           # )
+                    ,sprintf(
+          "ALTER TABLE %s ADD COLUMN %s %s;",
+          tbl_name(),
+          as.character(input$new_col_id),
+          as.character(input$col_type))
         )
       })
 
@@ -307,16 +310,19 @@ shinyCap <- function() {
         })
 
       output$read_file_view <-
-        renderDataTable(
+        renderDataTable({
+          validate(need(input$create_tbl2, "Enter new tbl name or match an existing name"))
+          validate(need(input$upload_tbl, "Select a csv file to upload"))
           read_file()
-        )
+        })
       
       observeEvent(input$upload_tbl, {
+        validate(need(input$create_tbl2, "Enter new tbl name or match an existing name"))
         inFile <- input$upload_tbl
         if (is.null(inFile))
           return(NULL)
         dbWriteTable(conn_fun(),
-                     input$create_tb2, read_file(), row.names = FALSE,
+                     input$create_tbl2, read_file(), row.names = FALSE,
                      append = TRUE)
       })
       # output$ls_elements <-
@@ -329,6 +335,7 @@ shinyCap <- function() {
 
       output$tbl_select <-
         renderUI({
+
           selectizeInput("tbl_select_inp",
                          "Select a table from Defined DB Conn",
                          choices = src_tbls(dplyr_conn()))
@@ -340,19 +347,19 @@ shinyCap <- function() {
       # output$my_mean <-
       #   renderPrint(mod_test())
       
-      # tbl_name <- reactive({
-      #   input$tbl_select_inp
-      # })
+      tbl_name <- reactive({
+        input$tbl_select_inp
+      })
       ###
       
       #### Row Level
-      tbl_name <- "shiny_cap_demo"
+      # tbl_name <- "shiny_cap_demo"
       # tbl_name <- reactive({
       #   
       # })
       
       ui_ls <- reactive({
-        tbl_col_types <- tblSchema(tbl_name,conn = 
+        tbl_col_types <- tblSchema(tbl_name(),conn = 
                                     #isolate(
                                      conn_fun()) #)
         Map(tbl_col_types$column_name, tbl_col_types$data_type,f = rendershinyCapUI)
@@ -370,10 +377,10 @@ shinyCap <- function() {
       # 
       observeEvent(input$submit, {
         if (input$id != 0) {
-          UpdateDataQuery(formData(),tbl_name, conn = conn_fun())
+          UpdateDataQuery(formData(),tbl_name(), conn = conn_fun())
         } else {
-          CreateData(formData(), tbl_name, conn = dplyr_conn(), conn2 = conn_fun())
-          UpdateInputs(CreateDefaultRecord(tbl_name, conn = conn_fun()), session)
+          CreateData(formData(), tbl_name(), conn = dplyr_conn(), conn2 = conn_fun())
+          UpdateInputs(CreateDefaultRecord(tbl_name(), conn = conn_fun()), session)
         }
       }, priority = 1)
       # 
@@ -386,8 +393,8 @@ shinyCap <- function() {
       })
       # 
       formData <- reactive({
-        values <- lapply(names(GetTableMetadata(tbl_name, conn_fun())$fields), function(x) input[[x]])
-        names(values) <- names(GetTableMetadata(tbl_name, conn_fun())$fields)
+        values <- lapply(names(GetTableMetadata(tbl_name(), conn_fun())$fields), function(x) input[[x]])
+        names(values) <- names(GetTableMetadata(tbl_name(), conn_fun())$fields)
         return(values)
       })
 
@@ -414,7 +421,7 @@ shinyCap <- function() {
       observeEvent(input$new,{
         data <-
           # isolate(
-          CreateDefaultRecord(tbl_name, conn = conn_fun())
+          CreateDefaultRecord(tbl_name(), conn = conn_fun())
           # )
         UpdateInputs(data, session)
       })
@@ -424,13 +431,8 @@ shinyCap <- function() {
           data <- responses()[input$responses_rows_selected, ]
           UpdateInputs(data, session)
         }
-
       })
-
     }
-    
-
-
   )
 }
 
