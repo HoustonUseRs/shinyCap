@@ -6,12 +6,12 @@
 #' @export
 shinyCap <- function() {
 
-  #require(shiny)
-  #require(dplyr)
-  #require(RPostgreSQL)
-  #require(sqldf)
-  #require(shinyjs)
-  #require(DT)
+  require(shiny)
+  require(dplyr)
+  require(RPostgreSQL)
+  require(sqldf)
+  require(shinyjs)
+  require(DT)
   shinyApp(
     ui =
       navbarPage("shinyCap",
@@ -50,6 +50,17 @@ shinyCap <- function() {
                           )),
                  tabPanel("Table Level",
                           navlistPanel("Table CRUD Operations",
+                                       tabPanel("Select Table",
+                                                p("Requires Valid Database Connection to be submitted"),
+                                                uiOutput("tbl_select")
+                                       ),
+                                       tabPanel("Table Fields",
+                                                p("Requires Valid Table to be Selected"),
+                                                textInput("new_col_id", "New Column Name"),
+                                                selectizeInput("col_type", "Column Data Type",
+                                                               choices  = c("text", "double precision", "boolean", "date")),
+                                                actionButton("new_col_button", "New Column/Field")
+                                       ),
                                        tabPanel("Create New Table",
                                                 textInput("create_tb",
                                                           "Create Table"),
@@ -66,17 +77,6 @@ shinyCap <- function() {
                                                                    'text/comma-separated-values,text/plain',
                                                                    '.csv')),
                                                 dataTableOutput("read_file_view")
-                                       ),
-                                       tabPanel("Select Table",
-                                                p("Requires Valid Database Connection to be submitted"),
-                                                uiOutput("tbl_select")
-                                       ),
-                                       tabPanel("Table Fields",
-                                                p("Requires Valid Table to be Selected"),
-                                                textInput("new_col_id", "New Column Name"),
-                                                selectizeInput("col_type", "Column Data Type",
-                                                               choices  = c("text", "double precision", "boolean", "date")),
-                                                actionButton("new_col_button", "New Column/Field")
                                        )
                           )
                  ),
@@ -346,11 +346,15 @@ shinyCap <- function() {
       ###
       
       #### Row Level
-      tbl_name <- "it_tickets"
-      
+      tbl_name <- "shiny_cap_demo"
+      # tbl_name <- reactive({
+      #   
+      # })
       
       ui_ls <- reactive({
-        tbl_col_types <- tblSchema(tbl_name,conn = conn_fun())
+        tbl_col_types <- tblSchema(tbl_name,conn = 
+                                    #isolate(
+                                     conn_fun()) #)
         Map(tbl_col_types$column_name, tbl_col_types$data_type,f = rendershinyCapUI)
       })
       # 
@@ -376,6 +380,7 @@ shinyCap <- function() {
       # 
       responses <- reactive({
         input$submit
+        input$new
         tbl(dplyr_conn(), input$tbl_select_inp) %>%
           collect()
       })
